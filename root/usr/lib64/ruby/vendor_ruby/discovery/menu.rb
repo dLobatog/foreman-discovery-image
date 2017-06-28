@@ -75,15 +75,13 @@ def start_discovery_service
   end
 end
 
-def configure_network static, mac, ip=nil, gw=nil, dns=nil
+def configure_network static, mac, ip=nil, gw=nil, dns=nil, vlan=nil
   command("systemctl stop foreman-proxy")
   if static
-    command("nm-configure primary-static '#{mac}' '#{ip}' '#{gw}' '#{dns}'")
+    command("nm-configure primary-static '#{mac}' '#{ip}' '#{gw}' '#{dns}' '#{vlan}'")
   else
-    command("nm-configure primary '#{mac}'")
+    command("nm-configure primary '#{mac}' '#{vlan}'")
   end
-  command("nmcli connection reload")
-  command("nmcli connection down primary")
   result = command("nmcli connection up primary", false)
   command("nm-online -s -q --timeout=45") unless static
   # restarting proxy with regenerated SSL self-signed cert
@@ -117,6 +115,7 @@ end
 
 def cleanup
   Newt::Screen.finish
+  exit 0
 end
 
 log_msg "Kernel opts: #{cmdline}"
@@ -172,17 +171,10 @@ def main_loop
           status = configure_network false, mac
         end
         log_debug "Unattended network configuration finished, result: #{status}"
+        delay = cmdline('fdi.countdown', 10)
+        log_debug "Delay for network initialization: #{delay} seconds"
+        sleep delay
         facts = new_custom_facts(mac)
-        (1..99).each do |n|
-          if (fact_name = cmdline("fdi.pxfactname#{n}"))
-            fact_value = cmdline("fdi.pxfactvalue#{n}")
-            log_debug "Adding custom fact #{fact_name}=#{fact_value}"
-            facts[fact_name] = fact_value
-          else
-            log_debug "Fact named fdi.pxfactname#{n} not present, so this was the last one"
-            break
-          end
-        end
         log_debug "Unattended facts upload started"
         result = upload(proxy_url, proxy_type, facts)
         log_debug "Unattended facts upload finished, result: #{result}"

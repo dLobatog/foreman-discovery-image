@@ -84,7 +84,7 @@ Building
 Install the required packages:
 
 ```
-$ sudo yum install livecd-tools pykickstart
+$ sudo yum install livecd-tools pykickstart isomd5sum
 ```
 
 To prepare CentOS 7 kickstart do:
@@ -125,6 +125,67 @@ file. This workarounds missing input options for additional kernel command
 line elements and can be used for testing the ISO with special kernel
 command line options multiple times.
 
+Building a release
+------------------
+
+This chapter is for The Foreman team members, skip to the next section if
+this is not for you.
+
+To build new release, use Jenkins CI job:
+
+http://ci.theforeman.org/view/Packaging/job/packaging_discovery_image
+
+To initiate the build in Rackspace locally, you need to install Vagrant,
+then install vagrant rackspace plugin via `vagrant plugin install
+vagrant-rackspace" and then configure it:
+
+		$ cat ~/.vagrant.d/Vagrantfile
+		# vim: sw=2:ts=2:et
+
+		Vagrant.configure("2") do |config|
+		  config.vm.box = "dummy"
+		  config.ssh.private_key_path = "~/.ssh/id_rsa"
+
+		  config.vm.provider :rackspace do |rs|
+			rs.username = "username"
+			rs.api_key = "abcdef1234567890..."
+			rs.public_key_path = "~/.ssh/id_rsa.pub"
+		  end
+		end
+
+Starting the job is easy:
+
+		cd aux/vagrant-build
+		distro=f24
+		LC_ALL=C repoowner=theforeman branch=master proxy_repo=1.14 vagrant up $distro
+
+Wait until the box starts up in Rackspace and builds the image, then connect to
+the box and download the image:
+
+		vagrant ssh-config $distro | tee vagrant-ssh-config.tmp
+		mkdir tmp
+		scp -F vagrant-ssh-config.tmp $distro:foreman-discovery-image/fdi*tar tmp/
+		scp -F vagrant-ssh-config.tmp $distro:foreman-discovery-image/fdi-bootable*iso tmp/
+
+And finally (do not forget):
+
+		LC_ALL=C repoowner=theforeman branch=master proxy_repo=1.14 vagrant destroy $distro
+
+Extensions
+----------
+
+Discovery Image supports runtime extensions published via TFTP or HTTP.
+Those are distributed as ZIP files with shell scripts. It is also possible
+to build an image with extensions built-in which is helpful for PXE-less
+environments.
+
+To do that, [follow the
+documentation](https://theforeman.org/plugins/foreman_discovery/8.0/index.html#5.Extendingtheimage)
+to create directory structure in root/opt/extension folder. Do not put ZIP
+files into this folder, but keep the directory structure extracted (this is
+the directory where ZIP files get downloaded and extracted). Then rebuild
+the image, the extensions will be started during boot.
+
 Additional facts
 ----------------
 
@@ -164,7 +225,7 @@ fdi.ssh=1 fdi.rootpw=redhat
 ```
 
 Root password can also be specified in encrypted form (using 'redhat' as
-an example below). Single and/or double quotes around password are 
+an example below). Single and/or double quotes around password are
 recommended to be used to prevent possible special characters
 interpretation.
 

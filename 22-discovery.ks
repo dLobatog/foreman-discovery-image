@@ -37,6 +37,7 @@ echo " * enabling required system services"
 systemctl enable ipmi.service
 systemctl enable foreman-proxy.service
 systemctl enable discovery-fetch-extensions.path
+systemctl enable discovery-start-extensions.service
 systemctl enable discovery-menu.service
 
 # register service is started manually from discovery-menu
@@ -95,8 +96,6 @@ cat >/etc/foreman-proxy/settings.d/logs.yml <<'CFG'
 CFG
 
 echo " * setting up systemd"
-echo "DefaultTimeoutStartSec=30s" >> /etc/systemd/system.conf
-echo "DefaultTimeoutStopSec=5s" >> /etc/systemd/system.conf
 echo "DumpCore=no" >> /etc/systemd/system.conf
 
 echo " * setting multi-user.target as default"
